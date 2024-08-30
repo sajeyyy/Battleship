@@ -14,34 +14,47 @@
 (define y-offset 200)  ; Vertical offset for grid positioning
 (define button-width 160)  ; Width of the start button
 (define button-height 60)  ; Height of the start button
+(define currentState home) ; Start the current state at homescreen
+(define num-ships 0) ; Number of ships selected
 
 ;; Create the Board
 (define (createBoard size)
-  (make-vector size (make-vector size #f)))  ; False means no part of the ship in that cell
+  (make-vector size (make-vector size #f)))  ; False means no part of a ship in that cell
 
 (define initialBoard (createBoard boardSize))  ; Initialize the board
 
-;; Game State
-(define currentState home)  ; Start in the home menu
-
-;; Checks if the mouse click is within a certain area
+;; Checks if the mouse click is within a given area
 (define (mouse-in? mx my x y width height)
   (and (<= x mx (+ x width))
        (<= y my (+ y height))))
 
-;; Function to Update the State
+;; Game update function
 (define (update state)
-  (let ([mx (mouse-x)] [my (mouse-y)])  ; Get mouse position
+  (let* ((mouseX (mouse-x))  ; Get mouse X position
+         (mouseY (mouse-y))  ; Get mouse Y position
+         (mouseClicked (btn-mouse)))  ; Check if the mouse button is pressed
     (cond
-      ;; Check if the mouse is detected and handle transitions based on mouse clicks
+      ;; Transition from home to ship-selection
       [(and (eq? currentState home)
-            (mouse-in? mx my x-offset y-offset button-width button-height)
-            (btn-mouse))  ; Check if the left mouse button is pressed
-       (begin
-         (set! currentState ship-selection)  ; Go to ship selection screen
-         (printf "Transitioning to ship-selection screen\n"))]  ; Debug output
-      ;; Add more conditions here for other states
-      [else state])))
+            (and (>= mouseX x-offset)
+                 (<= mouseX (+ x-offset button-width))
+                 (>= mouseY y-offset)
+                 (<= mouseY (+ y-offset button-height))
+                 mouseClicked))
+       (set! currentState ship-selection)]  ; Transition to ship selection state
+
+      ;; Handle ship selection
+      [(eq? currentState ship-selection)
+       ;; Check if mouse is clicked on any of the options
+       (for ([i (in-range 5)])
+         (let ((option-y (+ 60 (* i 50))))
+           (when (and (>= mouseX 50)
+                      (<= mouseX 150)
+                      (>= mouseY option-y)
+                      (<= mouseY (+ option-y 40))
+                      mouseClicked)
+             (set! currentState playing)  ; Set the state to playing
+             (set! num-ships (+ i 1)))))]))) ; Store the selected number of ships
 
 ;; Function to Draw the State
 (define (draw state)
@@ -58,20 +71,17 @@
       ;; Draw Ship Selection Screen
       [(eq? currentState ship-selection)
        (text 20 20 "Select the number of ships:")
-       ;; Add more code here to handle ship selection
-       
-       ;; Draw the grid
-       (for ([i (in-range (+ boardSize 1))])
-         ;; Vertical lines
-         (line (+ x-offset (* i cellSize)) y-offset
-               (+ x-offset (* i cellSize)) (+ y-offset (* boardSize cellSize)))
-         ;; Horizontal lines
-         (line x-offset (+ y-offset (* i cellSize))
-               (+ x-offset (* boardSize cellSize)) (+ y-offset (* i cellSize))))]
+       ;; Draw options for selecting the number of ships
+       (for ([i (in-range 5)])
+         (let ((option-y (+ 60 (* i 50))))
+           (rect 50 option-y 100 40 #:fill #t)  ; Draw a rectangle button for each option
+           (text 60 (+ option-y 30) (format "Option ~a" (+ i 1)))))  ; Display option number
 
+       ;; Draw additional instructions if necessary
+       (text 20 300 "Click on a number to select the number of ships.")]
+      
       ;; Draw Playing State
       [(eq? currentState playing)
-       ;; Add code here to draw the game board and other game elements
        (text 20 20 "Game in Progress")
        ;; Draw the grid
        (for ([i (in-range (+ boardSize 1))])
@@ -88,7 +98,7 @@
     (update currentState)  ; Call update with the current state
     (draw currentState)))  ; Call draw with the current state
 
-;; Start the game loop with window dimensions and optional settings
+;; Start the game loop
 (run game-loop
      800    ; width of the window
      800    ; height of the window
