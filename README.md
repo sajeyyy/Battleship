@@ -4,6 +4,7 @@ Team Members:
   - Saje Cowell
   - Spencer Sliffe
   - Charlie Gillund
+  - Jeff Burns
 
 
 Langauge: Racket
