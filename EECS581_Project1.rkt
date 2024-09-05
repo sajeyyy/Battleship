@@ -46,7 +46,7 @@
         (cons row col)
         #f)))
 
-;; Checks if a ship can be placed without overlap or out of bounds
+;; Checks if a ship can be placed without overlapping or out of bounds
 (define (can-place-ship? board row col size orientation)
   (and (if (eq? orientation 'horizontal)
            (<= (+ col size) boardSize)
@@ -118,12 +118,12 @@
        ;; Check if all ships are placed
        (when (= ships-placed num-ships)
          ;; Start Game Button
-         (when (and (mouse-in? mouseX mouseY 340 600 button-width button-height) mouseClicked)
+         (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
            (set! currentState in-play)
            (printf "All ships placed, transitioning to In-Play State~n")))
 
        ;; Revert Button
-       (when (and (mouse-in? mouseX mouseY 520 600 button-width button-height) mouseClicked
+       (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
                   (> ships-placed 0))
          (remove-ship initialBoard (first ships-placed-locations))
          (set! ships-placed (- ships-placed 1))
@@ -156,8 +156,6 @@
       ;; Draw Ship Selection Screen
       [(eq? currentState ship-selection)
        (color 0)  ; Set color to black for text
-       
-       ;; Set the font to a medium size
        (font tall-font)
        (text 20 20 "Select the number of ships:")
        (for ([i (in-range 5)])
@@ -173,7 +171,7 @@
       [(eq? currentState ship-placement)
        (color 7)
        (font wide-font)
-       (text 340 100 "Place Your Ships! Press LEFT arrow to toggle orientation.")
+       (text 175 100 "Place Your Ships! Press LEFT arrow to toggle orientation.")
        ;; Draw grid
        (for ([i (in-range (+ boardSize 1))])
          ;; Vertical lines
@@ -202,15 +200,15 @@
        ;; Draw Start Game button after all ships placed
        (when (= ships-placed num-ships)
          (color 7)
-         (rect 340 600 button-width button-height #:fill #t)
+         (rect 300 750 button-width button-height #:fill #t)
          (color 0)
-         (center-text 340 600 button-width "Start Game"))
+         (center-text 300 775 button-width "Start Game"))
 
        ;; Draw Revert button
        (color 7)
-       (rect 520 600 button-width button-height #:fill #t)
+       (rect 300 650 button-width button-height #:fill #t)
        (color 0)
-       (center-text 520 600 button-width "Revert Ship")]
+       (center-text 300 675 button-width "Revert Ship")]
 
       ;; Draw In-Play State
       [(eq? currentState in-play)
