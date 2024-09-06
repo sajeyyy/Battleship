@@ -21,6 +21,9 @@
 (define currentState home)
 (define num-ships 0)
 (define ships-placed 0)  ; Track number of ships placed
+(define opponent-y-offset 50)  ; Opponent grid placed at the top
+(define player-y-offset 465)   ; Player grid placed below
+(define playerTurn 0) 
 
 ;; Track ship sizes and placements
 (define ship-sizes '())
@@ -36,6 +39,26 @@
 
 
 (define initialBoard (createBoard boardSize))
+(define opponentBoard (createBoard boardSize))
+
+;; Function to draw the grid for in-play
+(define (draw-grid x-offset y-offset board)
+  ;; Draw grid lines and filled cells
+  (for ([i (in-range boardSize)])
+    (for ([j (in-range boardSize)])
+      ;; Draw grid lines
+      (color 7)  ; Set color to white
+      (rect (+ x-offset (* j cellSize)) 
+            (+ y-offset (* i cellSize)) 
+            cellSize cellSize 
+            #:fill #f)  ; Draw the cell outline
+      ;; If there is a ship on this cell, fill it in
+      (when (vector-ref (vector-ref board i) j)
+        (color 7)
+        (rect (+ x-offset (* j cellSize)) 
+              (+ y-offset (* i cellSize)) 
+              cellSize cellSize 
+              #:fill #t)))))  ; Draw the cell filled if ship present
 
 ;; Checks if the mouse click is within a given area
 (define (mouse-in? mx my x y width height)
@@ -87,8 +110,6 @@
   (set! ships-placed-locations (cons (list row col size orientation) ships-placed-locations))
   (print-board board))
 
-
-
 ;; Removes the most recently added ship from the board
 (define (remove-ship board ship)
   (let* ((row (first ship))
@@ -101,6 +122,12 @@
           (vector-set! (vector-ref board (+ row i)) col #f))))
   (set! ships-placed-locations (rest ships-placed-locations))
   (print-board board))
+
+;;50/50 RNG to determine who starts the game first
+(define (coinToss)
+  (cond [(eq? (modulo (random 1 100) 2) 0)
+         (set! playerTurn 1)
+         (set! playerTurn 0)]))
 
 ;; Game update function
 (define (update state)
@@ -147,7 +174,7 @@
          (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
            (set! currentState in-play)
            (printf "All ships placed, transitioning to In-Play State~n")))
-
+       
        ;; Revert Button
        (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
                   (> ships-placed 0))
@@ -239,8 +266,13 @@
       ;; Draw In-Play State
       [(eq? currentState in-play)
        (font wide-font)
-       (color 7)
-       (text 300 100 "Game In Progress!")]
+       ;; Draw opponent's board
+       (text 330 10 "Opponent's Board")
+       (draw-grid x-offset 25 opponentBoard)  ; Oppenent's board
+ 
+       ;; Draw player's board with placed ships
+       (text 355 450 "Your Board")
+       (draw-grid x-offset player-y-offset initialBoard)]  ; Player's board
 
       ;; Draw Game Over State
       [(eq? currentState game-over)
@@ -258,5 +290,5 @@
 ;; Start the game loop
 (run game-loop
      800    ; width of the window
-     800    ; height of the window
+     900    ; height of the window
      #:fps 60)  ; Set the frame rate to 60 FPS
