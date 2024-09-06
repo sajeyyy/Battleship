@@ -27,9 +27,13 @@
 (define ships-placed-locations '())
 (define ship-orientation 'horizontal)  ; Default orientation
 
-;; Create the Board
+;; Initialize the board with vectors
 (define (createBoard size)
-  (make-vector size (make-vector size #f)))  ; #f indicates no ship
+  (let ([board (make-vector size)])  ; Create an outer vector for rows
+    (for ([i (in-range size)])
+      (vector-set! board i (make-vector size #f)))  ; Set each element to a vector (row)
+    board))
+
 
 (define initialBoard (createBoard boardSize))
 
@@ -46,23 +50,44 @@
         (cons row col)
         #f)))
 
+(define (print-board board)
+  (for ([i (in-range (vector-length board))])
+    (printf "~a~n" (vector->list (vector-ref board i)))))
+
+
 ;; Checks if a ship can be placed without overlapping or out of bounds
 (define (can-place-ship? board row col size orientation)
-  (and (if (eq? orientation 'horizontal)
-           (<= (+ col size) boardSize)
-           (<= (+ row size) boardSize))
-       (for/and ([i (in-range size)])
-         (if (eq? orientation 'horizontal)
-             (not (vector-ref (vector-ref board row) (+ col i)))
-             (not (vector-ref (vector-ref board (+ row i)) col))))))
+  (let ([result (cond
+                  [(eq? orientation 'horizontal)
+                   (and (<= (+ col size) boardSize) ; Ensure it fits horizontally
+                        (for/and ([i (in-range size)])
+                          (not (vector-ref (vector-ref board row) (+ col i))))) ; Check specific cells horizontally
+                  ]
+                  [(eq? orientation 'vertical)
+                   (and (<= (+ row size) boardSize) ; Ensure it fits vertically
+                        (for/and ([i (in-range size)])
+                          (not (vector-ref (vector-ref board (+ row i)) col)))) ; Check specific cells vertically
+                  ])])
+    (displayln (format "Checking placement at row ~a, col ~a, size ~a, orientation ~a: ~a"
+                       row col size orientation result))
+    result))
+
 
 ;; Places a ship on the board
 (define (place-ship board row col size orientation)
   (for ([i (in-range size)])
     (if (eq? orientation 'horizontal)
-        (vector-set! (vector-ref board row) (+ col i) #t)
-        (vector-set! (vector-ref board (+ row i)) col #t)))
-  (set! ships-placed-locations (cons (list row col size orientation) ships-placed-locations)))
+        (begin
+          (printf "Placing horizontally at row ~a, col ~a~n" row (+ col i))
+          (vector-set! (vector-ref board row) (+ col i) #t))  ; Mark horizontal cells
+        (begin
+          (printf "Placing vertically at row ~a, col ~a~n" (+ row i) col)
+          (vector-set! (vector-ref board (+ row i)) col #t))))  ; Mark vertical cells
+  ;; Add the ship's information to the ships-placed-locations
+  (set! ships-placed-locations (cons (list row col size orientation) ships-placed-locations))
+  (print-board board))
+
+
 
 ;; Removes the most recently added ship from the board
 (define (remove-ship board ship)
@@ -74,7 +99,8 @@
       (if (eq? orientation 'horizontal)
           (vector-set! (vector-ref board row) (+ col i) #f)
           (vector-set! (vector-ref board (+ row i)) col #f))))
-  (set! ships-placed-locations (rest ships-placed-locations)))
+  (set! ships-placed-locations (rest ships-placed-locations))
+  (print-board board))
 
 ;; Game update function
 (define (update state)
