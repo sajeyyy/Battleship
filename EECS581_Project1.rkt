@@ -1,3 +1,19 @@
+#|-------------Prologue---------------
+Program Name: EECS_581_Project1_Battleship
+Description:
+
+Input: Number of Ships
+Output: 800x800 Window of a Battleship Gam
+
+Language: Racket
+Library: R-Cade
+Sources: Racket Documentation, R-Cade Tutorial, and ChatGPT
+
+Collaborators: Saje Cowell, Charlie Gillund, Spencer Slilffe, and Jeff 
+Date Created: 9/5/24
+|#
+
+
 #lang racket
 (require r-cade)
 (require racket/match)
@@ -48,7 +64,7 @@
     (for ([j (in-range boardSize)])
       ;; Draw grid lines
       (color 7)  ; Set color to white
-      (rect (+ x-offset (* j cellSize)) 
+      (rect (+ x-offset (* j cellSize))
             (+ y-offset (* i cellSize)) 
             cellSize cellSize 
             #:fill #f)  ; Draw the cell outline
