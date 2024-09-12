@@ -41,7 +41,7 @@
 (define opponentBoard (createBoard boardSize))
 
 ;; Function to draw the grid for in-play
-(define (draw-grid x-offset y-offset board)
+(define (draw-grid x-offset y-offset board showShips)
   ;; Draw grid lines and filled cells
   (for ([i (in-range boardSize)])
     (for ([j (in-range boardSize)])
@@ -66,12 +66,14 @@
                  (+ y-offset (* i cellSize)) 
                  cellSize cellSize 
                  #:fill #t)]
-          [(eq? cell #t)  ; Ship is present (for player's own board)
-           (color 7)  ; Set color to white
+          ;; Only show ships if `showShips` is true (i.e., on the player's own board)
+          [(and (eq? cell #t) showShips)  
+           (color 7)  ; Set color to white for player's ships
            (rect (+ x-offset (* j cellSize)) 
                  (+ y-offset (* i cellSize)) 
                  cellSize cellSize 
                  #:fill #t)])))))  ; Draw filled cell if ship is present
+
 
 
 ;; Checks if the mouse click is within a given area
@@ -386,11 +388,11 @@
        
        ;; Draw opponent's board
        (text 330 10 "Opponent's Board")
-       (draw-grid x-offset 25 opponentBoard)  ; Oppenent's board
+       (draw-grid x-offset 25 opponentBoard #f)  ; Oppenent's board
  
        ;; Draw player's board with placed ships
        (text 355 450 "Your Board")
-       (draw-grid x-offset player-y-offset initialBoard)]  ; Player's board
+       (draw-grid x-offset player-y-offset initialBoard #t)]  ; Player's board
 
       ;; Draw Game Over State
       [(eq? currentState game-over)
