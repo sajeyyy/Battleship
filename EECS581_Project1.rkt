@@ -118,6 +118,21 @@
   ;; Add the ship's information to the ships-placed-locations
   (set! ships-placed-locations (cons (list row col size orientation) ships-placed-locations)))
 
+(define (place-opponent-ships ship-sizes)
+  ;; Loop over the sizes of ships that the player selected
+  (for ([size ship-sizes])
+    (let loop ()
+      (let* ([row (random boardSize)]
+             [col (random boardSize)]
+             [orientation (if (zero? (random 2)) 'horizontal 'vertical)]) ; Random orientation
+        (if (can-place-ship? opponentBoard row col size orientation)
+            (begin
+              (place-ship opponentBoard row col size orientation)
+              (printf "Placed opponent ship of size ~a at row ~a, col ~a, orientation ~a~n" size row col orientation))  ; Debug output
+            (loop))))))  ; Retry if placement is invalid
+
+
+
 ;; Removes the most recently added ship from the board
 (define (remove-ship board ship)
   (let* ((row (first ship))
@@ -135,6 +150,11 @@
   (cond [(eq? (modulo (random 1 100) 2) 0)
          (set! playerTurn 1)
          (set! playerTurn 0)]))
+
+(define (print-board board)
+  (for ([row (in-vector board)])
+    (printf "~a~n" row)))
+
 
 (define (player-guess board mouseX mouseY)
   (let* ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))  ;; Fixed offset usage for opponent board
@@ -172,18 +192,22 @@
              (vector-set! (vector-ref board row) col 'miss)
              (printf "Opponent missed at ~a, ~a.~n" row col)])))))
 
+
 (define (check-game-over board)
-  (let ([ships-exist? #f]  ; Flag to check if there are any ships at all
-        [all-ships-hit? #t])  ; Flag to check if all ships have been hit
-    ;; Loop through the board to evaluate both conditions
+  (let ([ship-part-count 0]  ; Total ship parts (all cells with #t)
+        [hit-part-count 0])  ; Total hit parts (all cells with 'hit)
+    ;; Iterate over the board and count ship parts and hit parts
     (for ([row (in-vector board)])
       (for ([cell (in-vector row)])
-        (when (eq? cell #t)
-          (set! ships-exist? #t))  ; Found a ship
-        (when (and (eq? cell #t) (not (eq? cell 'hit)))
-          (set! all-ships-hit? #f))))  ; Ship exists but is not hit
-    ;; The game is over if ships exist and all have been hit
-    (and ships-exist? all-ships-hit?)))
+        (when (eq? cell #t)   ; Count ship parts
+          (set! ship-part-count (+ ship-part-count 1)))
+        (when (eq? cell 'hit) ; Count hit parts
+          (set! hit-part-count (+ hit-part-count 1)))))
+    ;; Debug output to check counts
+    (printf "Ship parts: ~a, Hit parts: ~a~n" ship-part-count hit-part-count)
+    ;; The game is over if all ship parts have been hit and there are ships
+    (and (= ship-part-count 0) ( < ship-part-count hit-part-count))))
+
 
 
 
@@ -207,58 +231,70 @@
              (set! num-ships (+ i 1))
              (set! ship-sizes (reverse (build-list num-ships add1))))))]  ; Create ship sizes 1 to num-ships
 
-      [(eq? currentState ship-placement)
-       ;; Toggle orientation on LEFT arrow key press
-       (when (btn-left)
-         (set! ship-orientation (if (eq? ship-orientation 'horizontal) 'vertical 'horizontal)))
+[(eq? currentState ship-placement)
+  ;; Toggle orientation on LEFT arrow key press
+  (when (btn-left)
+    (set! ship-orientation (if (eq? ship-orientation 'horizontal) 'vertical 'horizontal)))
 
-       ;; Adjusted y-offset for ship placement grid
-       (let* ((adjusted-y-offset (+ y-offset 20)))  ;; Fine-tune this value as needed
-         ;; Place ships
-         (when (and mouseClicked (< ships-placed num-ships))
-           (let* ((board-pos (mouse-to-board mouseX mouseY x-offset adjusted-y-offset))  ;; Adjusted for ship placement grid
-                  (current-ship-size (list-ref ship-sizes ships-placed)))
-             (when (and board-pos
-                        (can-place-ship? initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation))
-               (place-ship initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation)
-               (set! ships-placed (+ ships-placed 1))))))
+  ;; Adjusted y-offset for ship placement grid
+  (let* ((adjusted-y-offset (+ y-offset 20)))  ;; Fine-tune this value as needed
+    ;; Place ships
+    (when (and mouseClicked (< ships-placed num-ships))
+      (let* ((board-pos (mouse-to-board mouseX mouseY x-offset adjusted-y-offset))  ;; Adjusted for ship placement grid
+             (current-ship-size (list-ref ship-sizes ships-placed)))
+        (when (and board-pos
+                   (can-place-ship? initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation))
+          (place-ship initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation)
+          (set! ships-placed (+ ships-placed 1))))))
 
-       ;; Check if all ships are placed
-       (when (= ships-placed num-ships)
-         ;; Start Game Button
-         (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
-           (set! currentState in-play)
-           (coinToss)))
-       
-       ;; Revert Button
-       (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
-                  (> ships-placed 0))
-         (remove-ship initialBoard (first ships-placed-locations))
-         (set! ships-placed (- ships-placed 1)))]
+  ;; Check if all ships are placed
+  (when (= ships-placed num-ships)
+    ;; Start Game Button
+    (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
+      ;; Pass player's ship sizes to opponent ship placement
+      (place-opponent-ships ship-sizes) ; Add this line to place opponent ships based on player's selection
+      (set! currentState in-play)
+      (coinToss)))  ;; Decide who goes first
 
-      [(eq? currentState in-play)
-       ;; Player's turn: clicking on opponent's board
-       (when (and (eq? playerTurn 1) mouseClicked)
-         ;; Use the opponent board's y-offset when converting mouse position
-         (let ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))
-           (when board-pos
-             ;; Check if the cell was already guessed before switching turns
-             (if (or (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'hit)
-                     (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'miss))
-                 (printf "Cell was already guessed. Try a different one!~n")
-                 (begin
-                   (player-guess opponentBoard mouseX mouseY)
-                   (set! playerTurn 0))))))  ; Switch to opponent's turn after a valid shot
+  ;; Revert Button
+  (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
+             (> ships-placed 0))
+    (remove-ship initialBoard (first ships-placed-locations))
+    (set! ships-placed (- ships-placed 1)))]
 
-       ;; Opponent's turn (AI)
-       (when (eq? playerTurn 0)
-         (opponent-guess initialBoard)
-         (set! playerTurn 1))
+[(eq? currentState in-play)
+  ;; Player's turn: clicking on opponent's board
+  (when (and (eq? playerTurn 1) mouseClicked)
+    ;; Use the opponent board's y-offset when converting mouse position
+    (let ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))
+      (when board-pos
+        ;; Check if the cell was already guessed before switching turns
+        (if (or (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'hit)
+                (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'miss))
+            (printf "Cell was already guessed. Try a different one!~n")
+            (begin
+              (player-guess opponentBoard mouseX mouseY)
+              ;; Debug: print opponent board state after player guess
+              (printf "Current opponent board state after player guess:~n")
+              (print-board opponentBoard)
+              ;; Check if the player has won
+              (when (check-game-over opponentBoard)
+                (printf "Player wins! All opponent's ships are hit!~n")
+                (set! currentState game-over))
+              (set! playerTurn 0))))))  ; Switch to opponent's turn after a valid shot
 
-       ;; Check for game over condition
-       (when (or (check-game-over opponentBoard)
-                 (check-game-over initialBoard))
-         (set! currentState game-over))])))
+  ;; Opponent's turn (AI)
+  (when (eq? playerTurn 0)
+    (opponent-guess initialBoard)  ; AI guesses on the player's board
+    ;; Debug: print player board state after AI guess
+    (printf "Current player board state after AI guess:~n")
+    (print-board initialBoard)
+    ;; Check if the player has lost (i.e., all ships hit)
+    (when (check-game-over initialBoard)
+      (printf "Opponent wins! All your ships are hit!~n")
+      (set! currentState game-over))
+    (set! playerTurn 1))]  ; Switch back to player's turn after AI move
+)))
 
 
 ;; Function to approximate text centering horizontally
