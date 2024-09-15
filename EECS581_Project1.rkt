@@ -24,6 +24,13 @@
 (define opponent-y-offset 50)  ; Opponent's grid placed at the top
 (define player-y-offset 465)   ; Player's grid placed below
 (define playerTurn 0) ; 1 or 0 Depending on which player's turn it is
+(define game-mode '2-player) ; Default game mode
+
+(define player1-ships-placed 0)
+(define player2-ships-placed 0)
+(define current-player 1) ; Start with player 1
+
+
 
 ;; Track ship sizes and placements
 (define ship-sizes '())
@@ -39,6 +46,9 @@
 
 (define initialBoard (createBoard boardSize))
 (define opponentBoard (createBoard boardSize))
+
+(define player1-board (createBoard boardSize))
+(define player2-board (createBoard boardSize))
 
 ;; Function to draw the grid for in-play
 (define (draw-grid x-offset y-offset board showShips)
@@ -66,7 +76,7 @@
                  (+ y-offset (* i cellSize)) 
                  cellSize cellSize 
                  #:fill #t)]
-          ;; Only show ships if `showShips` is true (i.e., on the player's own board)
+          ;; Only show ships if showShips is true (i.e., on the player's own board)
           [(and (eq? cell #t) showShips)  
            (color 7)  ; Set color to white for player's ships
            (rect (+ x-offset (* j cellSize)) 
@@ -149,9 +159,10 @@
 
 ;;50/50 RNG to determine who starts the game first
 (define (coinToss)
-  (cond [(eq? (modulo (random 1 100) 2) 0)
-         (set! playerTurn 1)
-         (set! playerTurn 0)]))
+  (cond [(eq? game-mode '2-player)
+         (set! playerTurn (if (zero? (random 2)) 1 2))]  ; Randomly select Player 1 or Player 2
+        [(eq? game-mode '1-player-vs-ai)
+         (set! playerTurn (if (zero? (random 2)) 1 0))])) ; Randomly select Player or AI
 
 (define (print-board board)
   (for ([row (in-vector board)])
@@ -224,6 +235,22 @@
             mouseClicked)
        (set! currentState ship-selection)]
 
+      [(eq? currentState game-mode)
+ ;; If in game-mode selection
+ (let ([player-vs-ai-y 200]  ; Y position for Player vs A.I. button
+       [two-player-y 300])   ; Y position for 2-Player button
+   ;; Player vs A.I. Button
+   (when (and (mouse-in? mouseX mouseY 300 player-vs-ai-y button-width button-height)
+              mouseClicked)
+     (set! game-mode '1-player-vs-ai)
+     (set! currentState ship-placement)) ; Move to ship placement state
+   ;; 2-Player Button
+   (when (and (mouse-in? mouseX mouseY 300 two-player-y button-width button-height)
+              mouseClicked)
+     (set! game-mode '2-player)
+     (set! currentState ship-placement)))] ; Move to ship placement state
+
+
       [(eq? currentState ship-selection)
        (for ([i (in-range 5)])
          (let ((option-y (+ 60 (* i 50))))
@@ -234,69 +261,118 @@
              (set! ship-sizes (reverse (build-list num-ships add1))))))]  ; Create ship sizes 1 to num-ships
 
 [(eq? currentState ship-placement)
-  ;; Toggle orientation on LEFT arrow key press
-  (when (btn-left)
-    (set! ship-orientation (if (eq? ship-orientation 'horizontal) 'vertical 'horizontal)))
+ ;; Toggle orientation on LEFT arrow key press
+ (when (btn-left)
+   (set! ship-orientation (if (eq? ship-orientation 'horizontal) 'vertical 'horizontal)))
 
-  ;; Adjusted y-offset for ship placement grid
-  (let* ((adjusted-y-offset (+ y-offset 20)))  ;; Fine-tune this value as needed
-    ;; Place ships
-    (when (and mouseClicked (< ships-placed num-ships))
-      (let* ((board-pos (mouse-to-board mouseX mouseY x-offset adjusted-y-offset))  ;; Adjusted for ship placement grid
-             (current-ship-size (list-ref ship-sizes ships-placed)))
-        (when (and board-pos
-                   (can-place-ship? initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation))
-          (place-ship initialBoard (car board-pos) (cdr board-pos) current-ship-size ship-orientation)
-          (set! ships-placed (+ ships-placed 1))))))
+ ;; Determine current player's board and placement status
+ (define current-board (if (= current-player 1) player1-board player2-board))
+ ;; Use a getter function to obtain the number of ships placed for the current player
+ (define get-ships-placed (if (= current-player 1) player1-ships-placed player2-ships-placed))
+ (define set-ships-placed (if (= current-player 1)
+                              (lambda (val) (set! player1-ships-placed val))
+                              (lambda (val) (set! player2-ships-placed val))))
 
-  ;; Check if all ships are placed
-  (when (= ships-placed num-ships)
-    ;; Start Game Button
-    (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
-      ;; Pass player's ship sizes to opponent ship placement
-      (place-opponent-ships ship-sizes) ; Add this line to place opponent ships based on player's selection
-      (set! currentState in-play)
-      (coinToss)))  ;; Decide who goes first
+ ;; Adjusted y-offset for ship placement grid
+ (let* ((adjusted-y-offset (+ y-offset 20)))
+   ;; Place ships
+   (when (and mouseClicked (< get-ships-placed num-ships))  ; Use get-ships-placed
+     (let* ((board-pos (mouse-to-board mouseX mouseY x-offset adjusted-y-offset))
+            (current-ship-size (list-ref ship-sizes get-ships-placed))) ; Use get-ships-placed
+       (when (and board-pos
+                  (can-place-ship? current-board (car board-pos) (cdr board-pos) current-ship-size ship-orientation))
+         (place-ship current-board (car board-pos) (cdr board-pos) current-ship-size ship-orientation)
+         (set-ships-placed (+ get-ships-placed 1))))))  ; Update the number of ships placed
 
-  ;; Revert Button
-  (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
-             (> ships-placed 0))
-    (remove-ship initialBoard (first ships-placed-locations))
-    (set! ships-placed (- ships-placed 1)))]
+;; Check if all ships are placed
+(when (= get-ships-placed num-ships)  ; Use get-ships-placed
+  ;; If player 1 finished placing ships, switch to player 2
+  (if (and (= current-player 1) (eq? game-mode '2-player))
+      (begin
+        (set! current-player 2)
+        ;; Clear the ships-placed-locations for the second player's placement
+        (set! ships-placed-locations '())
+        (set! currentState ship-placement)) ; Continue placing for player 2
+      ;; Else, if we are done with player 2's placement, move to the in-play state
+      (begin
+        ;; Start Game Button
+        (when (and (mouse-in? mouseX mouseY 300 750 button-width button-height) mouseClicked)
+          (if (eq? game-mode '2-player)
+              (begin
+                (set! currentState in-play)
+                (coinToss)) ; Decide who goes first
+              (begin
+                ;; For 1-player vs AI
+                (place-opponent-ships ship-sizes) ; AI places ships
+                (set! currentState in-play)
+                (coinToss)))))))
+
+
+ ;; Revert Button
+ (when (and (mouse-in? mouseX mouseY 300 650 button-width button-height) mouseClicked
+            (> get-ships-placed 0)) ; Use get-ships-placed
+   (remove-ship current-board (first ships-placed-locations))
+   (set-ships-placed (- get-ships-placed 1)))]  ; Update the number of ships placed
+
+
 
 [(eq? currentState in-play)
-  ;; Player's turn: clicking on opponent's board
-  (when (and (eq? playerTurn 1) mouseClicked)
-    ;; Use the opponent board's y-offset when converting mouse position
-    (let ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))
-      (when board-pos
-        ;; Check if the cell was already guessed before switching turns
-        (if (or (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'hit)
-                (eq? (vector-ref (vector-ref opponentBoard (car board-pos)) (cdr board-pos)) 'miss))
-            (printf "Cell was already guessed. Try a different one!~n")
-            (begin
-              (player-guess opponentBoard mouseX mouseY)
-              ;; Debug: print opponent board state after player guess
-              (printf "Current opponent board state after player guess:~n")
-              (print-board opponentBoard)
-              ;; Check if the player has won
-              (when (check-game-over opponentBoard)
-                (printf "Player wins! All opponent's ships are hit!~n")
-                (set! currentState game-over))
-              (set! playerTurn 0))))))  ; Switch to opponent's turn after a valid shot
+ ;; Display whose turn it is
+ (font wide-font)
+ (text 20 20 (if (= playerTurn 1) "Player 1's Turn" "Player 2's Turn"))
 
-  ;; Opponent's turn (AI)
-  (when (eq? playerTurn 0)
-    (opponent-guess initialBoard)  ; AI guesses on the player's board
-    ;; Debug: print player board state after AI guess
-    (printf "Current player board state after AI guess:~n")
-    (print-board initialBoard)
-    ;; Check if the player has lost (i.e., all ships hit)
-    (when (check-game-over initialBoard)
-      (printf "Opponent wins! All your ships are hit!~n")
-      (set! currentState game-over))
-    (set! playerTurn 1))]  ; Switch back to player's turn after AI move
-)))
+ ;; If it's Player 1's turn
+ (if (= playerTurn 1)
+     (begin
+       ;; Player 1 guesses on Player 2's board (top grid)
+       (text 330 10 "Player 2's Board")
+       (draw-grid x-offset opponent-y-offset player2-board #f)  ; Hide Player 2's ships
+       ;; Player 1's own board (bottom grid)
+       (text 355 450 "Your Board")
+       (draw-grid x-offset player-y-offset player1-board #t)  ; Show Player 1's ships
+
+       ;; Handle clicks for Player 1's turn
+       (when mouseClicked
+         (let ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))
+           (when board-pos
+             ;; Ensure Player 1 interacts with Player 2's board (top grid)
+             (if (or (eq? (vector-ref (vector-ref player2-board (car board-pos)) (cdr board-pos)) 'hit)
+                     (eq? (vector-ref (vector-ref player2-board (car board-pos)) (cdr board-pos)) 'miss))
+                 (printf "Cell was already guessed. Try a different one!~n")
+                 (begin
+                   (player-guess player2-board mouseX mouseY) ; Player 1 guesses on Player 2's board
+                   ;; Check if Player 1 has won
+                   (when (check-game-over player2-board)
+                     (printf "Player 1 wins! All Player 2's ships are hit!~n")
+                     (set! currentState game-over))
+                   ;; Switch to Player 2's turn
+                   (set! playerTurn 2)))))))
+
+     ;; If it's Player 2's turn
+     (begin
+       ;; Player 2 guesses on Player 1's board (top grid)
+       (text 330 10 "Player 1's Board")
+       (draw-grid x-offset opponent-y-offset player1-board #f)  ; Hide Player 1's ships
+       ;; Player 2's own board (bottom grid)
+       (text 355 450 "Your Board")
+       (draw-grid x-offset player-y-offset player2-board #t)  ; Show Player 2's ships
+
+       ;; Handle clicks for Player 2's turn
+       (when mouseClicked
+         (let ((board-pos (mouse-to-board mouseX mouseY x-offset opponent-y-offset)))
+           (when board-pos
+             ;; Ensure Player 2 interacts with Player 1's board (top grid)
+             (if (or (eq? (vector-ref (vector-ref player1-board (car board-pos)) (cdr board-pos)) 'hit)
+                     (eq? (vector-ref (vector-ref player1-board (car board-pos)) (cdr board-pos)) 'miss))
+                 (printf "Cell was already guessed. Try a different one!~n")
+                 (begin
+                   (player-guess player1-board mouseX mouseY) ; Player 2 guesses on Player 1's board
+                   ;; Check if Player 2 has won
+                   (when (check-game-over player1-board)
+                     (printf "Player 2 wins! All Player 1's ships are hit!~n")
+                     (set! currentState game-over))
+                   ;; Switch back to Player 1's turn
+                   (set! playerTurn 1))))))))])))
 
 
 ;; Function to approximate text centering horizontally
@@ -323,6 +399,22 @@
        (color 7)
        (text 300 100 "Welcome to Battleship!")]
 
+      ;; Draw Game Mode Selection
+[(eq? currentState game-mode)
+ (color 7)
+ (font wide-font)
+ (text 150 100 "Select Game Mode")
+ ;; Draw Player vs A.I. button
+ (rect 300 200 button-width button-height #:fill #t)
+ (color 0)
+ (center-text 300 225 button-width "1-Player vs A.I.")
+ ;; Draw 2-Player button
+ (color 7)
+ (rect 300 300 button-width button-height #:fill #t)
+ (color 0)
+ (center-text 300 325 button-width "2-Player")]
+
+
       ;; Draw Ship Selection Screen
       [(eq? currentState ship-selection)
        (color 0)  ; Set color to black for text
@@ -337,62 +429,53 @@
            (text 375 (+ option-y 20) (format "~a Ships" (+ i 1)))))
        (text 20 300 "Click on a number to select the number of ships.")]
 
-      ;; Draw Ship Placement State
-      [(eq? currentState ship-placement)
-       (color 7)
-       (font wide-font)
-       (text 175 100 "Place Your Ships! Press LEFT arrow to toggle orientation.")
-       ;; Draw grid
-       (for ([i (in-range (+ boardSize 1))])
-         ;; Vertical lines
-         (line (+ x-offset (* i cellSize)) y-offset
-               (+ x-offset (* i cellSize)) (+ y-offset (* boardSize cellSize)))
-         ;; Horizontal lines
-         (line x-offset (+ y-offset (* i cellSize))
-               (+ x-offset (* boardSize cellSize)) (+ y-offset (* i cellSize))))
-       ;; Draw ships on the board
-       (for ([ship ships-placed-locations])
-         (let* ((row (first ship))
-                (col (second ship))
-                (size (third ship))
-                (orientation (fourth ship)))
-           (for ([i (in-range size)])
-             (if (eq? orientation 'horizontal)
-                 (rect (+ x-offset (* col cellSize) (* i cellSize))
-                       (+ y-offset (* row cellSize))
-                       cellSize cellSize
-                       #:fill #t)
-                 (rect (+ x-offset (* col cellSize))
-                       (+ y-offset (* row cellSize) (* i cellSize))
-                       cellSize cellSize
-                       #:fill #t)))))
-       
-       ;; Draw Start Game button after all ships placed
-       (when (= ships-placed num-ships)
-         (color 7)
-         (rect 300 750 button-width button-height #:fill #t)
-         (color 0)
-         (center-text 300 775 button-width "Start Game"))
+;; Draw Ship Placement State
+[(eq? currentState ship-placement)
+ (color 7)
+ (font wide-font)
+ (text 175 50 (format "Player ~a, Place Your Ships! Press LEFT arrow to toggle orientation." current-player))
 
-       ;; Draw Revert button
-       (color 7)
-       (rect 300 650 button-width button-height #:fill #t)
-       (color 0)
-       (center-text 300 675 button-width "Revert Ship")]
+ ;; Determine which board to draw for the current player
+ (define current-board (if (= current-player 1) player1-board player2-board))
+
+ ;; Draw the grid
+ (draw-grid x-offset y-offset current-board #t)
+
+ ;; Draw Start Game button after all ships placed for the current player
+ (when (= (if (= current-player 1) player1-ships-placed player2-ships-placed) num-ships)
+   (color 7)
+   (rect 300 750 button-width button-height #:fill #t)
+   (color 0)
+   (center-text 300 775 button-width "Start Game"))
+
+ ;; Draw Revert button
+ (color 7)
+ (rect 300 650 button-width button-height #:fill #t)
+ (color 0)
+ (center-text 300 675 button-width "Revert Ship")]
+
+
 
       ;; Draw In-Play State
-      [(eq? currentState in-play)
-       (font wide-font)
-
-       (text 20 20 (if (= playerTurn 1) "Player's Turn" "Opponent's Turn"))
-       
-       ;; Draw opponent's board
-       (text 330 10 "Opponent's Board")
-       (draw-grid x-offset 25 opponentBoard #f)  ; Oppenent's board
+[(eq? currentState in-play)
+ (font wide-font)
+ (text 20 20 (if (= playerTurn 1) "Player 1's Turn" "Player 2's Turn"))
  
-       ;; Draw player's board with placed ships
+ ;; Draw the boards based on the current turn
+ (if (= playerTurn 1)
+     (begin
+       ;; Player 1's turn: show Player 2's board on top, Player 1's board on bottom
+       (text 330 10 "Player 2's Board")
+       (draw-grid x-offset 25 player2-board #f)  ; Player 2's board
        (text 355 450 "Your Board")
-       (draw-grid x-offset player-y-offset initialBoard #t)]  ; Player's board
+       (draw-grid x-offset player-y-offset player1-board #t))  ; Player 1's board
+     (begin
+       ;; Player 2's turn: show Player 1's board on top, Player 2's board on bottom
+       (text 330 10 "Player 1's Board")
+       (draw-grid x-offset 25 player1-board #f)  ; Player 1's board
+       (text 355 450 "Your Board")
+       (draw-grid x-offset player-y-offset player2-board #t)))]  ; Player 2's board
+
 
       ;; Draw Game Over State
       [(eq? currentState game-over)
