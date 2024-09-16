@@ -1,24 +1,25 @@
 Language: Racket programming language
-The battleship game includes a user interface to select the number of players and ships, place ships on a grid, and play the game by taking turns to guess the location of opponent ships. The game is designed to support both single-player (Player vs. AI) and two-player modes. The game logic involves placing ships, making guesses, tracking hits and misses, and determining the game-over state. This documentation will explain the structure and logic of the code to ensure easy future development. 
+The battleship game includes a user interface to select the number of players and ships, place ships on a grid, and play the game by taking turns to guess the location of opponent ships. The game is designed to support both single-player (Player vs. AI) and two-player modes. The game logic involves placing ships, making guesses, tracking hits and misses, and determining the game-over state.
 
+Game Flow:
+	Main Menu -> Game Mode -> Select Number of Ships -> Ship Placement -> Active Game -> Game Over
 
-Code Structure Overview
+Code Structure
 
+	The game loop will be called every frame, which then calls update state. Whenver an action happens such as mouse click or button press, the state will be updated (Ex: Pressing start game from ship selection). The Draw function will find the current state using a conditional, and will draw the current state. 
+	
 1.	Initialization: Constants and variables are defined to set up the game states, board sizes, and control flow.
-2.	Game States: Defined using constants (home, game-mode-selection, etc.). These states represent different stages of the game.
-3.	Game Boards: The function createBoard initializes the game boards, setting up a 2D grid represented by nested vectors.
+2.	Game States: Defined using constants (home, game-mode-selection, game-over etc...). The different states represent different points of the game.
+3.	Game Boards: The function createBoard initializes the game boards, setting up a 10x10 2D grid represented by vectors.
 4.	Ship Placement: Functions check for valid ship placement and handle adding or removing ships from the board.
-5.	Gameplay: The main gameplay involves a player making guesses to hit the opponent's ships. The game loops through states and updates the board based on player actions.
-6.	Drawing Functions: UI drawing functions handle rendering different game states to the screen, such as grids, text, and buttons.
-7. Game Loop: The function game-loop coordinates the game's state transitions bycalling update and 
-draw functions in a loop.
+5.	Gameplay: The main gameplay involves a player making guesses to hit the opponent's ships. The game loops through states and updates the board based on player actions such as pressing buttons and checking if the game is over.
+6.	Drawing Functions: UI drawing functions handle drawing the current game state to the screen window such as grids, text, and buttons.
+7. Game Loop: The function game-loop coordinates the game's state transitions by calling the update and draw functions in a continous loop every frame.
  
 
-
 Initialization
-
--	The game states (home, game-mode-selection, etc.) are defined as constants, using numbers for easier state management.
--	Variables such as boardSize, cellSize, x-offset, y-offset, button-width, and button-height are declared to control the layout of the game UI.
+-	The game states (home, game-mode-selection, etc.) are defined as constants.
+-	Other variables such as boardSize, cellSize, x-offset, y-offset, button-width, and button-height are declared to control the layout of the game UI.
 -	currentState is initialized to home, indicating the starting point of the game.
 
 -	playerTurn, game-mode, and ship-related variables (num-ships, ships-placed, ship-sizes, etc.) are declared to manage game flow.
