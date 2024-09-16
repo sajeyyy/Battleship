@@ -6,6 +6,7 @@
 
 ;; Define States
 (define home 0)
+(define game-mode-selection .5)
 (define ship-selection 1)
 (define ship-placement 2)
 (define in-play 3)
@@ -29,7 +30,6 @@
 (define player1-ships-placed 0)
 (define player2-ships-placed 0)
 (define current-player 1) ; Start with player 1
-
 
 
 ;; Track ship sizes and placements
@@ -233,22 +233,21 @@
       [(and (eq? currentState home)
             (mouse-in? mouseX mouseY 340 225 button-width button-height)
             mouseClicked)
-       (set! currentState ship-selection)]
+       (set! currentState game-mode-selection)]
 
-      [(eq? currentState game-mode)
- ;; If in game-mode selection
- (let ([player-vs-ai-y 200]  ; Y position for Player vs A.I. button
-       [two-player-y 300])   ; Y position for 2-Player button
-   ;; Player vs A.I. Button
-   (when (and (mouse-in? mouseX mouseY 300 player-vs-ai-y button-width button-height)
-              mouseClicked)
-     (set! game-mode '1-player-vs-ai)
-     (set! currentState ship-placement)) ; Move to ship placement state
-   ;; 2-Player Button
-   (when (and (mouse-in? mouseX mouseY 300 two-player-y button-width button-height)
-              mouseClicked)
-     (set! game-mode '2-player)
-     (set! currentState ship-placement)))] ; Move to ship placement state
+      ;; Game Mode Selection State
+      [(eq? currentState game-mode-selection)
+       ;; Player vs AI Button
+       (when (and (mouse-in? mouseX mouseY 300 200 button-width button-height)
+                  mouseClicked)
+         (set! game-mode '1-player-vs-ai)
+         (set! currentState ship-selection))
+       ;; 2-Player Button
+       (when (and (mouse-in? mouseX mouseY 300 300 button-width button-height)
+                  mouseClicked)
+         (set! game-mode '2-player)
+         (set! currentState ship-selection))]
+
 
 
       [(eq? currentState ship-selection)
@@ -399,20 +398,23 @@
        (color 7)
        (text 300 100 "Welcome to Battleship!")]
 
-      ;; Draw Game Mode Selection
-[(eq? currentState game-mode)
- (color 7)
- (font wide-font)
- (text 150 100 "Select Game Mode")
- ;; Draw Player vs A.I. button
- (rect 300 200 button-width button-height #:fill #t)
- (color 0)
- (center-text 300 225 button-width "1-Player vs A.I.")
- ;; Draw 2-Player button
- (color 7)
- (rect 300 300 button-width button-height #:fill #t)
- (color 0)
- (center-text 300 325 button-width "2-Player")]
+      
+
+
+;; Draw Game Mode Selection
+      [(eq? currentState game-mode-selection)
+       (color 7)
+       (font wide-font)
+       (text 315 100 "Select Game Mode")
+       ;; Draw Player vs A.I. button
+       (rect 300 200 button-width button-height #:fill #t)
+       (color 0)
+       (center-text 300 225 button-width "1-Player vs A.I.")
+       ;; Draw 2-Player button
+       (color 7)
+       (rect 300 300 button-width button-height #:fill #t)
+       (color 0)
+       (center-text 300 325 button-width "2-Player")]
 
 
       ;; Draw Ship Selection Screen
