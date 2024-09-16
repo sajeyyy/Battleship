@@ -7,6 +7,9 @@ Reqiruments: Dr.Racket IDE (https://racket-lang.org)
 Libraries: R-Cade (https://r-cade.io)
 R-Cade Documentation: https://docs.racket-lang.org/r-cade/index.html
 
+Current Bug: After implmenting 2-Player, the Player vs. AI gameplay is not working properly. It swaps
+the boards like it's a pass and play game. In the push history, the "Game Over" push has a
+function Player vs. AI implementation.
 
 Input: Mouse and Key input in order to manage/play the game
 Output:
