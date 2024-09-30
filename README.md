@@ -1,4 +1,4 @@
-EECS 581 Project 1 BattleShip Game
+EECS581 Project 1, Racket Based BattleShip Game
 
 Team Members:
   - Saje Cowell
