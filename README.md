@@ -6,6 +6,9 @@ Team Members:
   - Charlie Gillund
   - Jeff Burns
 
+Game Modes: 
+  - AI
+  - 2-Player Pass and Play
 
 Langauge: Racket
 Game Engine: R-Cade
